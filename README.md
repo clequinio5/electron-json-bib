@@ -10,7 +10,7 @@ Stack is below:
 - Json Editor
 - Ant Design
 
-![electron-json-bib](screenshots/1.png)
+![electron-json-bib](/screenshots/1.png)
 
 
 
