@@ -1,4 +1,4 @@
-# ELECTRON JSON BIB
+# Electron Json Bib Manager
 
 Electron Json bib is a json object list editor oriented references management (like Zotero, Mendeley, Jabref,...)
 
