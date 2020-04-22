@@ -3,6 +3,7 @@ import 'bootstrap/dist/css/bootstrap.css';
 import 'antd/dist/antd.less';
 
 import React, { Component } from 'react';
+import ReactDOM from 'react-dom';
 import { remote } from 'electron';
 
 import SplitPane, { Pane } from 'react-split-pane';
@@ -54,13 +55,6 @@ class App extends Component {
   }
 
   componentDidMount() {
-    const window = remote.getCurrentWindow();
-    const [width, height] = window.getSize();
-    this.setState({ width: width, height: height })
-    window.on('resize', () => {
-      const [width, height] = remote.getCurrentWindow().getSize();
-      this.setState({ width: width, height: height });
-    });
     document.addEventListener("keydown", this.onKeyPress.bind(this), false);
   }
 
@@ -220,8 +214,7 @@ class App extends Component {
 
   render() {
 
-    const { data, height, selectedRow } = this.state;
-    const dynamicHeight = (height - 150) + "px";
+    const { data, selectedRow } = this.state;
     const nonExpandable = data ? data.filter(el => !el.attachment || el.attachment.length === 0).map(el => el.id) : [];
 
     let { columns } = this.state;
@@ -235,8 +228,6 @@ class App extends Component {
       }));
     }
 
-    console.log(selectedRow.key)
-
     return (
       <React.Fragment>
         <div >
@@ -246,19 +237,12 @@ class App extends Component {
           {data ? <Button className="menu btn-sm" onClick={() => this.exportJson()} >Export JSON (meta)</Button> : <div />}
           {data ? <Button className="menu btn-sm" onClick={() => this.exportJsonBib()} >Export JSON BIB (meta + files)</Button> : <div />}
         </div>
-        <SplitPane split="vertical" primary="first" minSize={300} defaultSize={600} maxSize={-400}>
-          <Pane className="pane1" style={{ "height": dynamicHeight }}>
+        <SplitPane split="vertical" primary="first" minSize={300} defaultSize={'75%'} maxSize={-400}>
+          <Pane className="pane1"  >
             {data ?
               <Table
-                id={"antdTable"}
                 dataSource={data}
                 columns={columns}
-                rowClassName={(row) => {
-                  const styles = [];
-                  if (nonExpandable.includes(row.id)) { styles.push('row-nonexpandable') }
-                  //if (selectedRow.id && selectedRow.id === row.id) { styles.push('row-selected') }
-                  return styles.join(' ')
-                }}
                 pagination={false}
                 components={{ header: { cell: ResizeableTitle } }}
                 rowExpandable={(row) => !nonExpandable.includes(row.id)}
@@ -271,7 +255,7 @@ class App extends Component {
               />
               : <div />}
           </Pane>
-          <Pane className="pane2" style={{ "height": dynamicHeight }} >
+          <Pane className="pane2" style={{ 'height': '100%' }}>
             {data ?
               <div>
                 <Button className="save btn-sm" onClick={() => this.saveJsonDoc()} >Save</Button>

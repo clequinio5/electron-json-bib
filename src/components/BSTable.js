@@ -18,7 +18,9 @@ function BSTable(props) {
                         style={{ marginLeft: "35px" }}
                         onClick={() => openAttachment(a.path)}
                         disabled={!fs.existsSync(a.path)}
-                        className={"btn btn-info btn-sm disable"}>{a.name + " - " + path.basename(a.path)}
+                        className={"btn btn-info btn-sm disable"}>
+                        <i className="fas fa-paperclip" style={{ marginRight: "10px" }} />
+                        {a.name + " - " + path.basename(a.path)}
                     </Button>
                 </div>)
                 .reduce((prev, curr) => [prev, <div style={{ height: "5px" }}></div>, curr])}

@@ -49,19 +49,17 @@
     border-color: transparent;
   }
 
-  .might-overflow {
-    text-overflow: ellipsis;
-    overflow : hidden;
-    white-space: nowrap;
+  html, body { 
+    overflow: hidden; 
   }
 
   .pane1 {
-    overflow-x: scroll;
-    overflow-y: scroll;
+    overflow-x:scroll;
+    overflow-y:auto;
   }
 
   .pane2 {
-    overflow-y: scroll;
+    overflow-y:auto;
   }
 
   .menu {
@@ -73,30 +71,22 @@
   .save {
     margin: 10px;
   }
-  
- /* .row-selected{
-   background-color: #c8e6c9 !important;
- } */
 
-.row-nonexpandable button{
-  display: none;
-}
+  #antdTable .react-resizable {
+    position: relative;
+    background-clip: padding-box;
+  }
 
-#antdTable .react-resizable {
-  position: relative;
-  background-clip: padding-box;
-}
+  #antdTable .react-resizable-handle {
+    position: absolute;
+    width: 10px;
+    height: 100%;
+    bottom: 0;
+    right: -5px;
+    cursor: col-resize;
+    z-index: 1;
+  }
 
-#antdTable .react-resizable-handle {
-  position: absolute;
-  width: 10px;
-  height: 100%;
-  bottom: 0;
-  right: -5px;
-  cursor: col-resize;
-  z-index: 1;
-}
-
-.ant-table-selection-column {
-  display: none;
-}
+  .ant-table-selection-column {
+    display: none;
+  }
