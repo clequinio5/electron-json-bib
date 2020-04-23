@@ -3,51 +3,52 @@ import 'bootstrap/dist/css/bootstrap.css';
 import 'antd/dist/antd.less';
 
 import React, { Component } from 'react';
-import ReactDOM from 'react-dom';
 import { remote } from 'electron';
 
 import SplitPane, { Pane } from 'react-split-pane';
 import { JSONEditor } from '@json-editor/json-editor';
-import { Table, message, Button } from 'antd';
+import { DndProvider } from 'react-dnd';
+import HTML5Backend from 'react-dnd-html5-backend';
+import { Table, message, Button, Tag, Divider, Tooltip } from 'antd';
 import BSTable from './BSTable';
 import { Resizable } from 'react-resizable';
 
 import toJsonSchema from 'to-json-schema';
 import fs from 'fs';
 import path from 'path';
+import { callbackify } from 'util';
 
-const ResizeableTitle = props => {
-  const { onResize, width, ...restProps } = props;
+// const ResizeableTitle = props => {
+//   const { onResize, width, ...restProps } = props;
 
-  if (!width) {
-    return <th {...restProps} />;
-  }
+//   if (!width) {
+//     return <th {...restProps} />;
+//   }
 
-  return (
-    <Resizable
-      width={width}
-      height={0}
-      handle={resizeHandle =>
-        <span
-          className={`react-resizable-handle react-resizable-handle-${resizeHandle}`}
-          onClick={e => { e.stopPropagation(); }}
-        />
-      }
-      onResize={onResize}
-      handleSize={[10, 10]}
-      draggableOpts={{ enableUserSelectHack: false }
-      }
-    >
-      <th {...restProps} />
-    </Resizable >
-  );
-};
+//   return (
+//     <Resizable
+//       width={width}
+//       height={0}
+//       handle={resizeHandle =>
+//         <span
+//           className={`react-resizable-handle react-resizable-handle-${resizeHandle}`}
+//           onClick={e => { e.stopPropagation(); }}
+//         />
+//       }
+//       onResize={onResize}
+//       handleSize={[10, 10]}
+//       draggableOpts={{ enableUserSelectHack: false }
+//       }
+//     >
+//       <th {...restProps} />
+//     </Resizable >
+//   );
+// };
 
 class App extends Component {
 
   constructor(props) {
     super(props);
-    this.editor_holder = React.createRef();
     this.editor = undefined
     this.state = {
       selectedRow: {}
@@ -62,7 +63,7 @@ class App extends Component {
     document.removeEventListener("keydown", this.onKeyPress.bind(this), false);
   }
 
-  loadDatas(data) {
+  loadDatas(data, path) {
     let columns = []
     if (Array.isArray(data)) {
       let allKeys = [], nestedKeys = [], flatKeys = []
@@ -74,7 +75,7 @@ class App extends Component {
               allKeys.push(key);
             }
             if (typeof obj[key] === "object" && !nestedKeys.includes(key)) {
-              nestedKeys.push(key)
+              nestedKeys.push(key);
             }
           }
         }
@@ -94,7 +95,7 @@ class App extends Component {
       }
       data = data.map((el, i) => Object.assign(el, { key: i }));
       message.success("Json importé!")
-      this.setState({ columns: columns, data: data });
+      this.setState({ columns: columns, data: data, path: path });
     } else {
       message.error("Le fichier importé doit être un tableau d'objets JSON")
     }
@@ -120,9 +121,9 @@ class App extends Component {
   }
 
   onRowEdit(row, index) {
-    this.setState({ selectedRow: row })
+    this.setState({ selectedRow: row });
     if (!this.editor) {
-      this.editor = new JSONEditor(this.editor_holder.current, {
+      this.editor = new JSONEditor(this.refs["editor_holder"], {
         theme: 'bootstrap4',
         iconlib: "fontawesome5",
         schema: Object.assign({ title: "Document" }, toJsonSchema(row, {
@@ -142,8 +143,9 @@ class App extends Component {
     const options = { properties: ['openFile'], filters: [{ name: 'JSON', extensions: ['json'] }] }
     remote.dialog.showOpenDialog(options).then(result => {
       if (!result.canceled) {
-        const json = fs.readFileSync(result.filePaths[0], 'utf8').toString();
-        this.loadDatas(JSON.parse(json))
+        const path = result.filePaths[0];
+        const json = fs.readFileSync(path, 'utf8').toString();
+        this.loadDatas(JSON.parse(json), path)
       }
     }).catch(err => {
       console.log(err)
@@ -199,67 +201,110 @@ class App extends Component {
     })
   }
 
-  handleResize(index) {
-    (e, { size }) => {
-      this.setState(({ columns }) => {
-        const nextColumns = [...columns];
-        nextColumns[index] = {
-          ...nextColumns[index],
-          width: size.width,
-        };
-        return { columns: nextColumns };
-      });
+  // handleResize(index) {
+  //   (e, { size }) => {
+  //     this.setState(({ columns }) => {
+  //       const nextColumns = [...columns];
+  //       nextColumns[index] = {
+  //         ...nextColumns[index],
+  //         width: size.width,
+  //       };
+  //       return { columns: nextColumns };
+  //     });
+  //   }
+  // };
+
+  addAttachment(rowKey, path) {
+    const { data } = this.state;
+    for (const row of data) {
+      if (row.id = rowKey) {
+        row.attachment.push({ name: "", path: path });
+        break;
+      }
     }
-  };
+    this.setState({ data });
+  }
+
+  tooltipButtonImportJson() {
+    const lines = [{ id: "...", "...": "..." }, { id: "...", "...": "..." }, {}, {}]
+    return (
+      <div>
+        <div>Le format du Json importé doit être le suivant:</div>
+        <Divider style={{ marginTop: "10px", marginBottom: "10px" }} />
+        <div><pre style={{ color: "white" }}>{JSON.stringify(lines, null, 2)}</pre></div>
+      </div>
+    )
+  }
+
+  tooltipButtonImportJsonBib() {
+    return (
+      <div>
+        <div>Le format du dossier Bibliothèque est de la forme:</div>
+        <Divider style={{ marginTop: "10px", marginBottom: "10px" }} />
+        <div><i className="far fa-folder marginRight10" />files</div>
+        <div><i className="far fa-file marginRight10" />metadata.json</div>
+      </div>
+    )
+  }
 
   render() {
 
-    const { data, selectedRow } = this.state;
+    const { data, selectedRow, path } = this.state;
     const nonExpandable = data ? data.filter(el => !el.attachment || el.attachment.length === 0).map(el => el.id) : [];
 
     let { columns } = this.state;
-    if (columns) {
-      columns = columns.map((col, index) => ({
-        ...col,
-        onHeaderCell: column => ({
-          width: column.width,
-          onResize: this.handleResize(index),
-        }),
-      }));
-    }
+
+    // if (columns) {
+    //   columns = columns.map((col, index) => ({
+    //     ...col,
+    //     onHeaderCell: column => ({
+    //       width: column.width,
+    //       onResize: this.handleResize(index),
+    //     }),
+    //   }));
+    // }
 
     return (
       <React.Fragment>
         <div >
-          <Button className="menu btn-sm" onClick={() => this.importJson()} >Import JSON (meta)</Button>
-          <Button className="menu btn-sm" onClick={() => this.importJsonBib()} >Import JSON BIB (meta + files)</Button>
-          {data ? <Button className="menu btn-sm" onClick={() => this.saveJson()} > Save</Button> : <div />}
-          {data ? <Button className="menu btn-sm" onClick={() => this.exportJson()} >Export JSON (meta)</Button> : <div />}
-          {data ? <Button className="menu btn-sm" onClick={() => this.exportJsonBib()} >Export JSON BIB (meta + files)</Button> : <div />}
+
+          <Button className="menu btn-sm" hidden={!data} onClick={() => this.saveJson()} ><i className="far fa-save marginRight10" />Save</Button>
+          <Tooltip placement="topLeft" title={this.tooltipButtonImportJson}><Button className="menu btn-sm" onClick={() => this.importJson()} ><i className="far fa-file marginRight10" />Import JSON (meta)</Button></Tooltip>
+          <Tooltip placement="topLeft" title={this.tooltipButtonImportJsonBib}><Button className="menu btn-sm" onClick={() => this.importJsonBib()} ><i className="far fa-folder marginRight10" />Import JSON BIB (meta + files)</Button></Tooltip>
+          <Button className="menu btn-sm" hidden={!data} onClick={() => this.exportJson()} ><i className="far fa-file marginRight10" />Export JSON (meta)</Button>
+          <Button className="menu btn-sm" hidden={!data} onClick={() => this.exportJsonBib()} ><i className="far fa-folder marginRight10" />Export JSON BIB (meta + files)</Button>
         </div>
         <SplitPane split="vertical" primary="first" minSize={300} defaultSize={'75%'} maxSize={-400}>
-          <Pane className="pane1"  >
-            {data ?
-              <Table
-                dataSource={data}
-                columns={columns}
-                pagination={false}
-                components={{ header: { cell: ResizeableTitle } }}
-                rowExpandable={(row) => !nonExpandable.includes(row.id)}
-                onRow={(row) => ({
-                  onClick: () => { this.onRowEdit(row) }
-                })}
-                rowSelection={{ selectedRowKeys: [selectedRow.key] }}
-                size="small"
-                expandedRowRender={(row) => { return (<BSTable row={row} />) }}
-              />
-              : <div />}
-          </Pane>
-          <Pane className="pane2" style={{ 'height': '100%' }}>
+          <Pane className="pane1" style={{ height: '100%' }}>
             {data ?
               <div>
-                <Button className="save btn-sm" onClick={() => this.saveJsonDoc()} >Save</Button>
-                <div ref={this.editor_holder} />
+                <Tag>{path}</Tag>
+                <Tag>rows: {data.length}</Tag>
+                <Tag>columns: {columns.length}</Tag>
+                <Divider style={{ marginTop: "10px", marginBottom: "10px" }} />
+                <div className="antdTable" >
+                  <Table
+                    dataSource={data}
+                    columns={columns}
+                    pagination={false}
+                    //components={{ header: { cell: ResizeableTitle } }}
+                    rowExpandable={(row) => !nonExpandable.includes(row.id)}
+                    onRow={(row) => ({
+                      onClick: () => { this.onRowEdit(row) }
+                    })}
+                    rowSelection={{ selectedRowKeys: [selectedRow.key] }}
+                    size="small"
+                    expandedRowRender={(row) => { return (<DndProvider backend={HTML5Backend}><BSTable addAttachment={this.addAttachment.bind(this)} row={row} /></DndProvider>) }}
+                  />
+                </div>
+              </div>
+              : <div />}
+          </Pane>
+          <Pane className="pane2">
+            {data ?
+              <div>
+                <Button className="save btn-sm" hidden={!selectedRow.key} onClick={() => this.saveJsonDoc()} ><i className="far fa-save marginRight10" />Save</Button>
+                <div ref="editor_holder" />
               </div>
               : <div />}
           </Pane>

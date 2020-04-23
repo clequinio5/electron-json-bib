@@ -53,13 +53,18 @@
     overflow: hidden; 
   }
 
-  .pane1 {
-    overflow-x:scroll;
-    overflow-y:auto;
+  .antdTable {
+    height:calc(100vh - 100px);
+    overflow:auto;
+  }
+
+  .marginRight10 {
+    margin-right: 10px;
   }
 
   .pane2 {
     overflow-y:auto;
+    height:calc(100vh - 40px);
   }
 
   .menu {
