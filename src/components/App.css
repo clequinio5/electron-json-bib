@@ -95,3 +95,7 @@
   .ant-table-selection-column {
     display: none;
   }
+
+  .btn:disabled {
+    cursor:default !important;
+  }

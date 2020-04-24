@@ -1,15 +1,17 @@
 import './App.css';
 import 'bootstrap/dist/css/bootstrap.css';
 import 'antd/dist/antd.less';
+import { SearchOutlined } from '@ant-design/icons';
 
 import React, { Component } from 'react';
-import { remote } from 'electron';
+import { remote, shell } from 'electron';
 
 import SplitPane, { Pane } from 'react-split-pane';
 import { JSONEditor } from '@json-editor/json-editor';
 import { DndProvider } from 'react-dnd';
+import Highlighter from 'react-highlight-words';
 import HTML5Backend from 'react-dnd-html5-backend';
-import { Table, message, Button, Tag, Divider, Tooltip } from 'antd';
+import { Table, notification, Button, Tag, Divider, Tooltip, Input } from 'antd';
 import BSTable from './BSTable';
 import { Resizable } from 'react-resizable';
 
@@ -52,7 +54,9 @@ class App extends Component {
     this.editor = undefined
     this.state = {
       selectedRow: {},
-      selectedIndex: undefined
+      selectedIndex: undefined,
+      searchText: '',
+      searchedColumn: ''
     }
   }
 
@@ -64,47 +68,118 @@ class App extends Component {
     document.removeEventListener("keydown", this.onKeyPress.bind(this), false);
   }
 
-  loadDatas(data, path) {
-    let columns = []
-    if (Array.isArray(data)) {
-      let allKeys = [], nestedKeys = [], flatKeys = []
-      for (const obj of data) {
-        if (typeof obj === "object" && !Array.isArray(obj)) {
-          const keys = Object.keys(obj);
-          for (const key of keys) {
-            if (!allKeys.includes(key)) {
-              allKeys.push(key);
-            }
-            if (typeof obj[key] === "object" && !nestedKeys.includes(key)) {
-              nestedKeys.push(key);
-            }
+  getColumnSearchProps(dataIndex) {
+    return ({
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
+        <div style={{ padding: 8 }}>
+          <Input
+            ref={node => {
+              this.searchInput = node;
+            }}
+            placeholder={`Search ${dataIndex}`}
+            value={selectedKeys[0]}
+            onChange={e => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+            onPressEnter={() => this.handleSearch(selectedKeys, confirm, dataIndex)}
+            style={{ width: 188, marginBottom: 8, display: 'block' }}
+          />
+          <Button
+            type="primary"
+            onClick={() => this.handleSearch(selectedKeys, confirm, dataIndex)}
+            icon={<SearchOutlined />}
+            size="small"
+            style={{ width: 90, marginRight: 8 }}
+          >
+            Search
+        </Button>
+          <Button onClick={() => this.handleReset(clearFilters)} size="small" style={{ width: 90 }}>
+            Reset
+        </Button>
+        </div>
+      ),
+      filterIcon: filtered => <SearchOutlined style={{ color: filtered ? '#1890ff' : undefined }} />,
+      onFilter: (value, record) =>
+        record[dataIndex]
+          .toString()
+          .toLowerCase()
+          .includes(value.toLowerCase()),
+      onFilterDropdownVisibleChange: visible => {
+        if (visible) {
+          setTimeout(() => this.searchInput.select());
+        }
+      },
+      render: text =>
+        this.state.searchedColumn === dataIndex ? (
+          <Highlighter
+            highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
+            searchWords={[this.state.searchText]}
+            autoEscape
+            textToHighlight={text.toString()}
+          />
+        ) : (
+            text
+          ),
+    })
+  };
+
+  handleSearch(selectedKeys, confirm, dataIndex) {
+    confirm();
+    this.setState({
+      searchText: selectedKeys[0],
+      searchedColumn: dataIndex,
+    });
+  };
+
+  handleReset(clearFilters) {
+    clearFilters();
+    this.setState({ searchText: '' });
+  };
+
+  computeColumns(data) {
+    let columns = [];
+    let allKeys = [], nestedKeys = [], flatKeys = []
+    for (const obj of data) {
+      if (typeof obj === "object" && !Array.isArray(obj)) {
+        const keys = Object.keys(obj);
+        for (const key of keys) {
+          if (!allKeys.includes(key)) {
+            allKeys.push(key);
+          }
+          if (typeof obj[key] === "object" && !nestedKeys.includes(key)) {
+            nestedKeys.push(key);
           }
         }
       }
-      for (const key of allKeys) {
-        if (!nestedKeys.includes(key)) {
-          columns.push({
-            key: key,
-            dataIndex: key,
-            title: key.charAt(0).toUpperCase() + key.slice(1),
-            sorter: (a, b) => {
-              if (a[key] && b[key]) {
-                return a[key].localeCompare(b[key]);
-              } else {
-                return a[key] ? -1 : 1;
-              }
-            },
-            width: 200,
-            ellipsis: true
-          });
-          flatKeys.push(key);
-        }
+    }
+    for (const key of allKeys) {
+      if (!nestedKeys.includes(key)) {
+        columns.push({
+          dataIndex: key,
+          title: key.charAt(0).toUpperCase() + key.slice(1),
+          sorter: (a, b) => {
+            if (a[key] && b[key]) {
+              return a[key].localeCompare(b[key]);
+            } else {
+              return a[key] ? -1 : 1;
+            }
+          },
+          width: 200,
+          ellipsis: true,
+          ...this.getColumnSearchProps(key)
+        });
+        flatKeys.push(key);
       }
+    }
+    return columns
+  }
+
+  loadDatas(data, path) {
+    if (Array.isArray(data)) {
+      const columns = this.computeColumns(data);
       data = data.map((el, i) => Object.assign(el, { key: i }));
-      message.success("Json importé!")
+      notification.success({ placement: "bottomLeft", message: "Json importé!", description: "Le fichier a été importé avec succès", duration: 4 })
       this.setState({ columns: columns, data: data, path: path });
     } else {
-      message.error("Le fichier importé doit être un tableau d'objets JSON")
+      notification.error({ placement: "bottomLeft", message: "ERREUR", description: "Le fichier importé doit être un tableau d'objets JSON", duration: 4 })
     }
   }
 
@@ -125,6 +200,7 @@ class App extends Component {
 
   onRowEdit(row, rowIndex) {
     this.setState({ selectedRow: row, selectedIndex: rowIndex });
+    console.log(row)
     if (!this.editor) {
       this.editor = new JSONEditor(this.refs["editor_holder"], {
         theme: 'bootstrap4',
@@ -142,10 +218,13 @@ class App extends Component {
     this.editor.setValue(row);
   }
 
-  convertBibTexToJson(bibtex) {
-    const json =
-      console.log(bibFile);
-    return json
+  clear() {
+    this.setState({
+      data: undefined,
+      columns: undefined,
+      selectedRow: {},
+      selectedIndex: undefined
+    })
   }
 
   importJson() {
@@ -153,8 +232,12 @@ class App extends Component {
     remote.dialog.showOpenDialog(options).then(result => {
       if (!result.canceled) {
         const path = result.filePaths[0];
-        const json = fs.readFileSync(path, 'utf8').toString();
-        this.loadDatas(JSON.parse(json), path)
+        const json = JSON.parse(fs.readFileSync(path, 'utf8').toString());
+        let data = json;
+        if (this.state.data) {
+          data = [...this.state.data, ...data];
+        }
+        this.loadDatas(data, path);
       }
     }).catch(err => {
       console.log(err)
@@ -217,7 +300,7 @@ class App extends Component {
           }
         }
         fs.writeFileSync(jsonBibMetadataPath, JSON.stringify(data, null, 4), 'utf8');
-        message.success("Bibliothèque JSON (metadonnées + documents) exportée avec succès!")
+        notification.success({ placement: "bottomLeft", message: "Json importé!", description: "Bibliothèque JSON (metadonnées + documents) exportée avec succès!", duration: 4 })
       }
     }).catch(err => {
       console.log(err)
@@ -291,6 +374,7 @@ class App extends Component {
       <React.Fragment>
         <div >
           <Button type="primary" className="menu btn-sm" hidden={!data} onClick={() => this.saveJson()} ><i className="far fa-save marginRight10" />Save</Button>
+          <Button type="secondary" className="menu btn-sm" hidden={!data} onClick={() => this.clear()} ><i className="fas fa-broom marginRight10" />Clear</Button>
           <Tooltip placement="topLeft" title={this.tooltipButtonImportJson}>
             <Button type="primary" className="menu btn-sm" onClick={() => this.importJson()} ><i className="far fa-file marginRight10" />Import JSON (meta)</Button>
           </Tooltip>
@@ -307,7 +391,7 @@ class App extends Component {
             {data ?
               <div>
                 <div style={{ marginLeft: "10px", marginTop: "10px" }}>
-                  <Tag color="#008B8B">{path}</Tag>
+                  <Tag color="#008B8B" onClick={() => shell.openItem(path)}>{path}</Tag>
                   <Tag color="#BDB76B">rows: {data.length}</Tag>
                   <Tag color="#8FBC8F">columns: {columns.length}</Tag>
                 </div>
@@ -317,6 +401,9 @@ class App extends Component {
                     dataSource={data}
                     columns={columns}
                     pagination={false}
+                    showSorterTooltip={false}
+                    expandRowByClick={true}
+                    search
                     //components={{ header: { cell: ResizeableTitle } }}
                     rowExpandable={(row) => !nonExpandable.includes(row.id)}
                     onRow={(row, rowIndex) => ({
@@ -331,7 +418,7 @@ class App extends Component {
               : <div />}
           </Pane>
           <Pane className="pane2">
-            <div hidden={!selectedIndex}>
+            <div hidden={selectedIndex === undefined}>
               <Button type="primary" className="save btn-sm" onClick={() => this.saveJsonDoc()} ><i className="far fa-save marginRight10" />Save</Button>
               <div ref="editor_holder" />
             </div>

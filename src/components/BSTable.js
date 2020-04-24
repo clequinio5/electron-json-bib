@@ -32,17 +32,17 @@ function BSTable(props) {
     return (
         <div ref={drop}>
             {props.row.attachment
-                .map(a => <div>
+                .map((a, i) => <div>
                     <Button
                         style={{ marginLeft: "35px" }}
                         onClick={() => openAttachment(a.path)}
                         disabled={!fs.existsSync(a.path)}
-                        className={"btn btn-info btn-sm disable"}>
+                        className={"btn btn-info btn-sm"}>
                         <i className="fas fa-paperclip marginRight10" />
                         {a.name + " - " + path.basename(a.path)}
                     </Button>
                 </div>)
-                .reduce((prev, curr) => [prev, <div style={{ height: "5px" }}></div>, curr])}
+                .reduce((prev, curr) => [prev, <div style={{ height: "5px" }} />, curr])}
         </div>
     )
 }
