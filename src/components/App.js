@@ -152,7 +152,7 @@ class App extends Component {
     }
     for (const key of allKeys) {
       if (!nestedKeys.includes(key)) {
-        columns.push({
+        let column = {
           dataIndex: key,
           title: key.charAt(0).toUpperCase() + key.slice(1),
           sorter: (a, b) => {
@@ -163,9 +163,10 @@ class App extends Component {
             }
           },
           width: 200,
-          ellipsis: true,
-          ...this.getColumnSearchProps(key)
-        });
+          ellipsis: true
+        }
+        if (!(column.dataIndex === 'id')) { column = Object.assign(column, this.getColumnSearchProps(key)) }
+        columns.push(column);
         flatKeys.push(key);
       }
     }
@@ -200,7 +201,6 @@ class App extends Component {
 
   onRowEdit(row, rowIndex) {
     this.setState({ selectedRow: row, selectedIndex: rowIndex });
-    console.log(row)
     if (!this.editor) {
       this.editor = new JSONEditor(this.refs["editor_holder"], {
         theme: 'bootstrap4',
