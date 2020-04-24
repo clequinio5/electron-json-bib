@@ -19,7 +19,8 @@ module.exports = {
           loader: 'less-loader',
           options: {
             modifyVars: {
-              'table-selected-row-bg': '#c8e6c9'
+              'table-selected-row-bg': '#c8e6c9',
+              'primary-color': '#5F9EA0'
             },
             javascriptEnabled: true,
           },

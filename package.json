@@ -19,6 +19,7 @@
     "@fortawesome/fontawesome-free": "^5.13.0",
     "@json-editor/json-editor": "^2.1.0",
     "antd": "^4.1.4",
+    "bibtex-parse": "^2.1.0",
     "bootstrap": "^4.4.1",
     "less": "^3.11.1",
     "less-loader": "^5.0.0",

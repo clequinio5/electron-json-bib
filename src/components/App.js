@@ -16,7 +16,7 @@ import { Resizable } from 'react-resizable';
 import toJsonSchema from 'to-json-schema';
 import fs from 'fs';
 import path from 'path';
-import { callbackify } from 'util';
+import bibtexParse from 'bibtex-parse';
 
 // const ResizeableTitle = props => {
 //   const { onResize, width, ...restProps } = props;
@@ -51,7 +51,8 @@ class App extends Component {
     super(props);
     this.editor = undefined
     this.state = {
-      selectedRow: {}
+      selectedRow: {},
+      selectedIndex: undefined
     }
   }
 
@@ -86,7 +87,13 @@ class App extends Component {
             key: key,
             dataIndex: key,
             title: key.charAt(0).toUpperCase() + key.slice(1),
-            sorter: (a, b) => a[key].length - b[key].length,
+            sorter: (a, b) => {
+              if (a[key] && b[key]) {
+                return a[key].localeCompare(b[key]);
+              } else {
+                return a[key] ? -1 : 1;
+              }
+            },
             width: 200,
             ellipsis: true
           });
@@ -103,25 +110,21 @@ class App extends Component {
 
   onKeyPress(event) {
     if (event.keyCode === 46) {
-      const data = this.state.data.filter(el => !(el.id === this.selectedRow.id));
-      this.setState({ data: data, selectedRow: {} });
+      const data = [...this.state.data];
+      data.splice(this.state.selectedIndex, 1);
+      this.setState({ data, selectedRow: {}, selectedIndex: undefined });
     }
   }
 
   saveJsonDoc() {
-    const { data } = this.state;
+    const { data, selectedIndex } = this.state;
     const jsonDoc = this.editor.getValue();
-    for (let row of data) {
-      if (row.id === jsonDoc.id) {
-        row = Object.assign(row, jsonDoc);
-        break;
-      }
-    }
-    this.setState({ data: data });
+    data[selectedIndex] = Object.assign(data[selectedIndex], jsonDoc);
+    this.setState({ data });
   }
 
-  onRowEdit(row, index) {
-    this.setState({ selectedRow: row });
+  onRowEdit(row, rowIndex) {
+    this.setState({ selectedRow: row, selectedIndex: rowIndex });
     if (!this.editor) {
       this.editor = new JSONEditor(this.refs["editor_holder"], {
         theme: 'bootstrap4',
@@ -139,6 +142,12 @@ class App extends Component {
     this.editor.setValue(row);
   }
 
+  convertBibTexToJson(bibtex) {
+    const json =
+      console.log(bibFile);
+    return json
+  }
+
   importJson() {
     const options = { properties: ['openFile'], filters: [{ name: 'JSON', extensions: ['json'] }] }
     remote.dialog.showOpenDialog(options).then(result => {
@@ -146,6 +155,20 @@ class App extends Component {
         const path = result.filePaths[0];
         const json = fs.readFileSync(path, 'utf8').toString();
         this.loadDatas(JSON.parse(json), path)
+      }
+    }).catch(err => {
+      console.log(err)
+    })
+  }
+
+  importBibTex() {
+    const options = { properties: ['openFile'], filters: [{ name: 'BibTex', extensions: ['bib'] }] }
+    remote.dialog.showOpenDialog(options).then(result => {
+      if (!result.canceled) {
+        const path = result.filePaths[0];
+        const bibtex = fs.readFileSync(path, 'utf8').toString();
+        const json = bibtexParse.entries(bibtex);
+        this.loadDatas(json, path);
       }
     }).catch(err => {
       console.log(err)
@@ -249,7 +272,7 @@ class App extends Component {
 
   render() {
 
-    const { data, selectedRow, path } = this.state;
+    const { data, selectedRow, selectedIndex, path } = this.state;
     const nonExpandable = data ? data.filter(el => !el.attachment || el.attachment.length === 0).map(el => el.id) : [];
 
     let { columns } = this.state;
@@ -267,20 +290,27 @@ class App extends Component {
     return (
       <React.Fragment>
         <div >
-
-          <Button className="menu btn-sm" hidden={!data} onClick={() => this.saveJson()} ><i className="far fa-save marginRight10" />Save</Button>
-          <Tooltip placement="topLeft" title={this.tooltipButtonImportJson}><Button className="menu btn-sm" onClick={() => this.importJson()} ><i className="far fa-file marginRight10" />Import JSON (meta)</Button></Tooltip>
-          <Tooltip placement="topLeft" title={this.tooltipButtonImportJsonBib}><Button className="menu btn-sm" onClick={() => this.importJsonBib()} ><i className="far fa-folder marginRight10" />Import JSON BIB (meta + files)</Button></Tooltip>
-          <Button className="menu btn-sm" hidden={!data} onClick={() => this.exportJson()} ><i className="far fa-file marginRight10" />Export JSON (meta)</Button>
-          <Button className="menu btn-sm" hidden={!data} onClick={() => this.exportJsonBib()} ><i className="far fa-folder marginRight10" />Export JSON BIB (meta + files)</Button>
+          <Button type="primary" className="menu btn-sm" hidden={!data} onClick={() => this.saveJson()} ><i className="far fa-save marginRight10" />Save</Button>
+          <Tooltip placement="topLeft" title={this.tooltipButtonImportJson}>
+            <Button type="primary" className="menu btn-sm" onClick={() => this.importJson()} ><i className="far fa-file marginRight10" />Import JSON (meta)</Button>
+          </Tooltip>
+          <Button type="primary" className="menu btn-sm" onClick={() => this.importBibTex()} ><i className="far fa-file marginRight10" />Import BibTex (meta)</Button>
+          <Tooltip placement="topLeft" title={this.tooltipButtonImportJsonBib}>
+            <Button type="primary" className="menu btn-sm" onClick={() => this.importJsonBib()} ><i className="far fa-folder marginRight10" />Import JSON BIB (meta + files)</Button>
+          </Tooltip>
+          <Button type="primary" className="menu btn-sm" hidden={!data} onClick={() => this.exportJson()} ><i className="far fa-file marginRight10" />Export JSON (meta)</Button>
+          <Button type="primary" className="menu btn-sm" hidden={!data} onClick={() => this.exportJsonBib()} ><i className="far fa-folder marginRight10" />Export JSON BIB (meta + files)</Button>
         </div>
+        <Divider style={{ marginTop: "5px", marginBottom: "0px" }} />
         <SplitPane split="vertical" primary="first" minSize={300} defaultSize={'75%'} maxSize={-400}>
           <Pane className="pane1" style={{ height: '100%' }}>
             {data ?
               <div>
-                <Tag>{path}</Tag>
-                <Tag>rows: {data.length}</Tag>
-                <Tag>columns: {columns.length}</Tag>
+                <div style={{ marginLeft: "10px", marginTop: "10px" }}>
+                  <Tag color="#008B8B">{path}</Tag>
+                  <Tag color="#BDB76B">rows: {data.length}</Tag>
+                  <Tag color="#8FBC8F">columns: {columns.length}</Tag>
+                </div>
                 <Divider style={{ marginTop: "10px", marginBottom: "10px" }} />
                 <div className="antdTable" >
                   <Table
@@ -289,8 +319,8 @@ class App extends Component {
                     pagination={false}
                     //components={{ header: { cell: ResizeableTitle } }}
                     rowExpandable={(row) => !nonExpandable.includes(row.id)}
-                    onRow={(row) => ({
-                      onClick: () => { this.onRowEdit(row) }
+                    onRow={(row, rowIndex) => ({
+                      onClick: () => { this.onRowEdit(row, rowIndex) }
                     })}
                     rowSelection={{ selectedRowKeys: [selectedRow.key] }}
                     size="small"
@@ -301,12 +331,10 @@ class App extends Component {
               : <div />}
           </Pane>
           <Pane className="pane2">
-            {data ?
-              <div>
-                <Button className="save btn-sm" hidden={!selectedRow.key} onClick={() => this.saveJsonDoc()} ><i className="far fa-save marginRight10" />Save</Button>
-                <div ref="editor_holder" />
-              </div>
-              : <div />}
+            <div hidden={!selectedIndex}>
+              <Button type="primary" className="save btn-sm" onClick={() => this.saveJsonDoc()} ><i className="far fa-save marginRight10" />Save</Button>
+              <div ref="editor_holder" />
+            </div>
           </Pane>
         </SplitPane>
       </React.Fragment >
