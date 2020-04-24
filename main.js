@@ -35,7 +35,7 @@ function createWindow() {
     height: 768,
     show: false,
     center: true,
-    title: "Simple Quick JSON Bib Editor",
+    title: "JSON Bib Editor",
     webPreferences: {
       nodeIntegration: true
     }

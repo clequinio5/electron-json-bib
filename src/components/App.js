@@ -56,7 +56,8 @@ class App extends Component {
       selectedRow: {},
       selectedIndex: undefined,
       searchText: '',
-      searchedColumn: ''
+      searchedColumn: '',
+      currentPath: []
     }
   }
 
@@ -175,10 +176,11 @@ class App extends Component {
 
   loadDatas(data, path) {
     if (Array.isArray(data)) {
+      if (this.state.data) { data = [...this.state.data, ...data]; }
       const columns = this.computeColumns(data);
       data = data.map((el, i) => Object.assign(el, { key: i }));
-      notification.success({ placement: "bottomLeft", message: "Json importé!", description: "Le fichier a été importé avec succès", duration: 4 })
-      this.setState({ columns: columns, data: data, path: path });
+      notification.success({ placement: "bottomLeft", message: "Données importées!", description: "Les données ont été importées avec succès", duration: 4 })
+      this.setState({ columns: columns, data: data, currentPath: [...this.state.currentPath, path] });
     } else {
       notification.error({ placement: "bottomLeft", message: "ERREUR", description: "Le fichier importé doit être un tableau d'objets JSON", duration: 4 })
     }
@@ -200,7 +202,6 @@ class App extends Component {
   }
 
   onRowEdit(row, rowIndex) {
-    this.setState({ selectedRow: row, selectedIndex: rowIndex });
     if (!this.editor) {
       this.editor = new JSONEditor(this.refs["editor_holder"], {
         theme: 'bootstrap4',
@@ -216,6 +217,7 @@ class App extends Component {
       })
     }
     this.editor.setValue(row);
+    this.setState({ selectedRow: row, selectedIndex: rowIndex });
   }
 
   clear() {
@@ -223,7 +225,8 @@ class App extends Component {
       data: undefined,
       columns: undefined,
       selectedRow: {},
-      selectedIndex: undefined
+      selectedIndex: undefined,
+      currentPath: []
     })
   }
 
@@ -232,11 +235,7 @@ class App extends Component {
     remote.dialog.showOpenDialog(options).then(result => {
       if (!result.canceled) {
         const path = result.filePaths[0];
-        const json = JSON.parse(fs.readFileSync(path, 'utf8').toString());
-        let data = json;
-        if (this.state.data) {
-          data = [...this.state.data, ...data];
-        }
+        const data = JSON.parse(fs.readFileSync(path, 'utf8').toString());
         this.loadDatas(data, path);
       }
     }).catch(err => {
@@ -250,8 +249,8 @@ class App extends Component {
       if (!result.canceled) {
         const path = result.filePaths[0];
         const bibtex = fs.readFileSync(path, 'utf8').toString();
-        const json = bibtexParse.entries(bibtex);
-        this.loadDatas(json, path);
+        const data = bibtexParse.entries(bibtex);
+        this.loadDatas(data, path);
       }
     }).catch(err => {
       console.log(err)
@@ -259,15 +258,69 @@ class App extends Component {
   }
 
   importJsonBib() {
-    console.log("importjsonbib")
+    const options = { properties: ['openDirectory'], filters: [{ name: 'All Files', extensions: ['*'] }] }
+    remote.dialog.showOpenDialog(options).then(result => {
+      if (!result.canceled) {
+        const jsonBibPath = result.filePaths[0];
+        const jsonBibMetadataPath = jsonBibPath + "\\metadata.json";
+        const jsonBibFilesPath = jsonBibPath + "\\files";
+        if (!fs.existsSync(jsonBibMetadataPath)) {
+          notification.error({ placement: "bottomLeft", message: "Erreur d'import", description: "La structure de la bibliothèque est incorrecte.\nLe chemin: " + jsonBibMetadataPath + " n'existe pas.", duration: 4 });
+          return
+        }
+        if (!fs.existsSync(jsonBibFilesPath)) {
+          notification.error({ placement: "bottomLeft", message: "Erreur d'import", description: "La structure de la bibliothèque est incorrecte.\nLe chemin: " + jsonBibFilesPath + " n'existe pas.", duration: 4 });
+          return
+        }
+        const metadata = JSON.parse(fs.readFileSync(jsonBibMetadataPath, 'utf8').toString());
+        for (const data of metadata) {
+          const attachments = data.attachment;
+          if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+            for (const attachment of attachments) {
+              attachment.path = jsonBibPath + "\\" + attachment.path;
+            }
+          }
+        }
+        this.loadDatas(metadata, jsonBibPath);
+      }
+    }).catch(err => {
+      console.log(err)
+    })
+  }
+
+  exportFile(data, jsonPath) {
+    fs.writeFileSync(jsonPath, JSON.stringify(data, null, 4), 'utf8');
+  }
+
+  exportDir(data, jsonBibPath) {
+    fs.rmdirSync(jsonBibPath, { recursive: true });
+    fs.mkdirSync(jsonBibPath);
+    const jsonBibFilesPath = jsonBibPath + "\\files";
+    const jsonBibMetadataPath = jsonBibPath + "\\metadata.json";
+    fs.mkdirSync(jsonBibFilesPath);
+    for (const row of data) {
+      const { attachment } = row;
+      if (attachment) {
+        const jsonBibFilesFolderPath = jsonBibFilesPath + "\\" + row.key;
+        fs.mkdirSync(jsonBibFilesFolderPath);
+        for (const a of attachment) {
+          const jsonBibFilePath = jsonBibFilesFolderPath + "\\" + path.basename(a.path);
+          if (fs.existsSync(a.path)) {
+            fs.copyFileSync(a.path, jsonBibFilePath);
+          }
+          a.path = path.relative(jsonBibPath, jsonBibFilePath);
+        }
+      }
+    }
+    fs.writeFileSync(jsonBibMetadataPath, JSON.stringify(data, null, 4), 'utf8');
   }
 
   exportJson() {
-    const options = { properties: ['createDirectory'], filters: [{ name: 'JSON', extensions: ['json'] }] }
-    remote.dialog.showOpenDialog(options).then(result => {
+    const options = { filters: [{ name: 'JSON', extensions: ['json'] }] }
+    remote.dialog.showSaveDialog(options).then(result => {
       if (!result.canceled) {
-        const json = fs.readFileSync(result.filePaths[0], 'utf8').toString();
-        this.loadDatas(JSON.parse(json))
+        this.exportFile(this.state.data, result.filePath);
+        notification.success({ placement: "bottomLeft", message: "Métadonnées exportées!", description: "Métadonnées JSON exportées avec succès!", duration: 4 })
       }
     }).catch(err => {
       console.log(err)
@@ -275,32 +328,11 @@ class App extends Component {
   }
 
   exportJsonBib() {
-    const options = { properties: ['openDirectory'], filters: [{ name: 'All Files', extensions: ['*'] }] }
-    remote.dialog.showOpenDialog(options).then(result => {
+    const options = { filters: [{ name: 'All Files', extensions: ['*'] }] }
+    remote.dialog.showSaveDialog(options).then(result => {
       if (!result.canceled) {
-        const jsonBibPath = result.filePaths[0];
-        fs.rmdirSync(jsonBibPath, { recursive: true });
-        fs.mkdirSync(jsonBibPath);
-        const jsonBibFilesPath = jsonBibPath + "\\files";
-        const jsonBibMetadataPath = jsonBibPath + "\\metadata.json";
-        fs.mkdirSync(jsonBibFilesPath);
-        const { data } = this.state;
-        for (const row of data) {
-          const { attachment } = row;
-          if (attachment) {
-            const jsonBibFilesFolderPath = jsonBibFilesPath + "\\" + row.key;
-            fs.mkdirSync(jsonBibFilesFolderPath);
-            for (const a of attachment) {
-              const jsonBibFilePath = jsonBibFilesFolderPath + "\\" + path.basename(a.path);
-              if (fs.existsSync(a.path)) {
-                fs.copyFileSync(a.path, jsonBibFilePath);
-              }
-              a.path = path.relative(jsonBibPath, jsonBibFilePath);
-            }
-          }
-        }
-        fs.writeFileSync(jsonBibMetadataPath, JSON.stringify(data, null, 4), 'utf8');
-        notification.success({ placement: "bottomLeft", message: "Json importé!", description: "Bibliothèque JSON (metadonnées + documents) exportée avec succès!", duration: 4 })
+        this.exportDir(this.state.data, result.filePath);
+        notification.success({ placement: "bottomLeft", message: "Bibliothèque exportée!", description: "Bibliothèque JSON (metadonnées + documents) exportée avec succès!", duration: 4 })
       }
     }).catch(err => {
       console.log(err)
@@ -320,14 +352,20 @@ class App extends Component {
   //   }
   // };
 
-  addAttachment(rowKey, path) {
-    const { data } = this.state;
-    for (const row of data) {
-      if (row.id = rowKey) {
-        row.attachment.push({ name: "", path: path });
-        break;
-      }
+  save() {
+    const { data, path } = this.state;
+    if (fs.lstatSync(path_string).isDirectory()) {
+      this.exportDir(data, path);
+      notification.success({ placement: "bottomLeft", message: "Bibliothèque sauvegardée!", description: "Bibliothèque JSON (metadonnées + documents) sauvegardée avec succès!", duration: 4 })
+    } else {
+      this.exportFile(data, path);
+      notification.success({ placement: "bottomLeft", message: "Métadonnées sauvegardées!", description: "Métadonnées JSON sauvegardées avec succès!", duration: 4 })
     }
+  }
+
+  addAttachment(path) {
+    const { data, selectedIndex } = this.state;
+    data[selectedIndex].attachment.push({ name: "POST-PRINT", path: path });
     this.setState({ data });
   }
 
@@ -355,7 +393,7 @@ class App extends Component {
 
   render() {
 
-    const { data, selectedRow, selectedIndex, path } = this.state;
+    const { data, selectedRow, selectedIndex, currentPath } = this.state;
     const nonExpandable = data ? data.filter(el => !el.attachment || el.attachment.length === 0).map(el => el.id) : [];
 
     let { columns } = this.state;
@@ -373,7 +411,7 @@ class App extends Component {
     return (
       <React.Fragment>
         <div >
-          <Button type="primary" className="menu btn-sm" hidden={!data} onClick={() => this.saveJson()} ><i className="far fa-save marginRight10" />Save</Button>
+          <Button type="primary" className="menu btn-sm" hidden={!data || currentPath.length > 1} onClick={() => this.save()} ><i className="far fa-save marginRight10" />Save</Button>
           <Button type="secondary" className="menu btn-sm" hidden={!data} onClick={() => this.clear()} ><i className="fas fa-broom marginRight10" />Clear</Button>
           <Tooltip placement="topLeft" title={this.tooltipButtonImportJson}>
             <Button type="primary" className="menu btn-sm" onClick={() => this.importJson()} ><i className="far fa-file marginRight10" />Import JSON (meta)</Button>
@@ -391,7 +429,7 @@ class App extends Component {
             {data ?
               <div>
                 <div style={{ marginLeft: "10px", marginTop: "10px" }}>
-                  <Tag color="#008B8B" onClick={() => shell.openItem(path)}>{path}</Tag>
+                  {currentPath.map((path, i) => <Tag key={i} color="#008B8B" onClick={() => shell.openItem(path)}>{path}</Tag>)}
                   <Tag color="#BDB76B">rows: {data.length}</Tag>
                   <Tag color="#8FBC8F">columns: {columns.length}</Tag>
                 </div>

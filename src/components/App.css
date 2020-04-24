@@ -54,7 +54,7 @@
   }
 
   .antdTable {
-    height:calc(100vh - 100px);
+    height:calc(100vh - 115px);
     overflow:auto;
   }
 
@@ -64,7 +64,7 @@
 
   .pane2 {
     overflow-y:auto;
-    height:calc(100vh - 40px);
+    height:calc(100vh - 65px);
   }
 
   .menu {

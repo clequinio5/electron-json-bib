@@ -19,7 +19,7 @@ function BSTable(props) {
                 const files = monitor.getItem().files;
                 for (const file of files) {
                     const { path } = file;
-                    props.addAttachment(props.row, path);
+                    props.addAttachment(path);
                 }
             }
         },
@@ -40,7 +40,7 @@ function BSTable(props) {
                         disabled={!fs.existsSync(a.path)}
                         className={"btn btn-info btn-sm"}>
                         <i className="fas fa-paperclip marginRight10" />
-                        {a.name + " - " + path.basename(a.path)}
+                        {a.name ? a.name + " - " + path.basename(a.path) : path.basename(a.path)}
                     </Button>)
                 .reduce((prev, curr, i) => [prev, <div key={"s" + i} style={{ height: "5px" }} />, curr])}
         </div>
