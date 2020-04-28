@@ -77,12 +77,12 @@
     margin: 10px;
   }
 
-  #antdTable .react-resizable {
+   .react-resizable {
     position: relative;
     background-clip: padding-box;
   }
 
-  #antdTable .react-resizable-handle {
+   .react-resizable-handle {
     position: absolute;
     width: 10px;
     height: 100%;
@@ -92,8 +92,8 @@
     z-index: 1;
   }
 
-  .ant-table-selection-column {
-    display: none;
+ .ant-table .ant-checkbox {
+    display: none !important;
   }
 
   .btn:disabled {

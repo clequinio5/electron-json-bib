@@ -10,6 +10,13 @@ module.exports = {
   module: {
     rules: [
       {
+        test: /\.css$/,
+        use: [
+          'style-loader',
+          'css-loader'
+        ]
+      },
+      {
         test: /\.less$/,
         use: [{
           loader: 'style-loader',
@@ -25,14 +32,6 @@ module.exports = {
             javascriptEnabled: true,
           },
         }]
-      },
-      {
-        test: /\.css$/,
-        use: [
-          'style-loader',
-          'css-loader',
-          'postcss-loader'
-        ]
       },
       {
         test: /\.jsx?$/,

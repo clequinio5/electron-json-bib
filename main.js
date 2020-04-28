@@ -41,7 +41,6 @@ function createWindow() {
     }
   })
 
-  // and load the index.html of the app.
   let indexPath
 
   if (dev && process.argv.indexOf('--noDevServer') === -1) {

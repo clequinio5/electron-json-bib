@@ -1,9 +1,10 @@
 import './App.css';
-import 'bootstrap/dist/css/bootstrap.css';
+import 'bootstrap/dist/css/bootstrap.min.css';
 import 'antd/dist/antd.less';
+import '@fortawesome/fontawesome-free/js/all';
 import { SearchOutlined } from '@ant-design/icons';
 
-import React, { Component } from 'react';
+import React, { Component, useState } from 'react';
 import { remote, shell } from 'electron';
 
 import SplitPane, { Pane } from 'react-split-pane';
@@ -20,32 +21,33 @@ import fs from 'fs';
 import path from 'path';
 import bibtexParse from 'bibtex-parse';
 
-// const ResizeableTitle = props => {
-//   const { onResize, width, ...restProps } = props;
+const ResizeableTitle = props => {
+  const { onResize, width, onClick, ...restProps } = props;
 
-//   if (!width) {
-//     return <th {...restProps} />;
-//   }
+  const [allowClick, setAllowClick] = useState(true);
 
-//   return (
-//     <Resizable
-//       width={width}
-//       height={0}
-//       handle={resizeHandle =>
-//         <span
-//           className={`react-resizable-handle react-resizable-handle-${resizeHandle}`}
-//           onClick={e => { e.stopPropagation(); }}
-//         />
-//       }
-//       onResize={onResize}
-//       handleSize={[10, 10]}
-//       draggableOpts={{ enableUserSelectHack: false }
-//       }
-//     >
-//       <th {...restProps} />
-//     </Resizable >
-//   );
-// };
+  if (!width) {
+    return <th {...restProps} />;
+  }
+
+  return (
+    <Resizable
+      width={width}
+      height={0}
+      onResize={onResize}
+      onResizeStart={e => {
+        setAllowClick(false);
+      }}
+      handleSize={[10, 10]}
+      draggableOpts={{ enableUserSelectHack: false }}
+    >
+      <th {...restProps} onMouseDown={e => {
+        setAllowClick(true);
+      }}
+        onClick={e => allowClick && onClick(e)} />
+    </Resizable >
+  );
+};
 
 class App extends Component {
 
@@ -339,18 +341,18 @@ class App extends Component {
     })
   }
 
-  // handleResize(index) {
-  //   (e, { size }) => {
-  //     this.setState(({ columns }) => {
-  //       const nextColumns = [...columns];
-  //       nextColumns[index] = {
-  //         ...nextColumns[index],
-  //         width: size.width,
-  //       };
-  //       return { columns: nextColumns };
-  //     });
-  //   }
-  // };
+  handleResize(index) {
+    return (e, { size }) => {
+      this.setState(({ columns }) => {
+        const nextColumns = [...columns];
+        nextColumns[index] = {
+          ...nextColumns[index],
+          width: size.width,
+        };
+        return { columns: nextColumns };
+      });
+    }
+  };
 
   save() {
     const { data, path } = this.state;
@@ -398,15 +400,15 @@ class App extends Component {
 
     let { columns } = this.state;
 
-    // if (columns) {
-    //   columns = columns.map((col, index) => ({
-    //     ...col,
-    //     onHeaderCell: column => ({
-    //       width: column.width,
-    //       onResize: this.handleResize(index),
-    //     }),
-    //   }));
-    // }
+    if (columns) {
+      columns = columns.map((col, index) => ({
+        ...col,
+        onHeaderCell: column => ({
+          width: column.width,
+          onResize: this.handleResize(index),
+        }),
+      }));
+    }
 
     return (
       <React.Fragment>
@@ -442,7 +444,7 @@ class App extends Component {
                     showSorterTooltip={false}
                     expandRowByClick={true}
                     search
-                    //components={{ header: { cell: ResizeableTitle } }}
+                    components={{ header: { cell: ResizeableTitle } }}
                     rowExpandable={(row) => !nonExpandable.includes(row.id)}
                     onRow={(row, rowIndex) => ({
                       onClick: () => { this.onRowEdit(row, rowIndex) }

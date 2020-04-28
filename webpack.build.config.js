@@ -14,14 +14,29 @@ module.exports = {
         test: /\.css$/,
         use: [
           MiniCssExtractPlugin.loader,
-          'css-loader',
-          'postcss-loader'
-        ],
-        include: defaultInclude
+          'css-loader'
+        ]
       },
       {
-        test: /\.jsx?$/,
-        use: [{ loader: 'babel-loader' }],
+        test: /\.less$/,
+        use: [{
+          loader: MiniCssExtractPlugin.loader,
+        }, {
+          loader: 'css-loader',
+        }, {
+          loader: 'less-loader',
+          options: {
+            modifyVars: {
+              'table-selected-row-bg': '#c8e6c9',
+              'primary-color': '#5F9EA0'
+            },
+            javascriptEnabled: true,
+          },
+        }]
+      },
+      {
+        test: /\.js?$/,
+        use: [{ loader: 'babel-loader', }],
         include: defaultInclude
       },
       {
@@ -47,8 +62,7 @@ module.exports = {
     }),
     new webpack.DefinePlugin({
       'process.env.NODE_ENV': JSON.stringify('production')
-    }),
-    new BabiliPlugin()
+    })
   ],
   stats: {
     colors: true,
