@@ -33,7 +33,7 @@ Stack is below:
 
 ## Installation package for Windows
 
-./builds/quick-json-bib-win32-x64
+./builds/quick-json-bib-win32-x64/quick-json-bib.exe
 
 
 
